@@ -140,5 +140,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - UI components inspired by shadcn/ui
 - Icons from Lucide React
 # proposals-app
-# proposals-app
-# proposals-app
