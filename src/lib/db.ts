@@ -1,12 +1,32 @@
-import { kv } from '@vercel/kv';
+import fs from 'fs/promises';
+import path from 'path';
 import { Proposal, ProposalSchema } from './types';
 
-const PROPOSALS_KEY = 'proposals';
+const DB_PATH = path.join(process.cwd(), 'data', 'proposals.json');
+
+// Ensure the data directory exists
+async function ensureDbExists() {
+  try {
+    await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
+    try {
+      await fs.access(DB_PATH);
+    } catch {
+      await fs.writeFile(DB_PATH, JSON.stringify([]));
+    }
+  } catch (error) {
+    console.error('Failed to ensure database exists:', error);
+    throw error;
+  }
+}
+
+// Initialize the database
+ensureDbExists();
 
 // Get all proposals
 export async function getProposals(): Promise<Proposal[]> {
   try {
-    const proposals = await kv.get<Proposal[]>(PROPOSALS_KEY) || [];
+    const data = await fs.readFile(DB_PATH, 'utf-8');
+    const proposals = JSON.parse(data);
     return proposals.map((proposal: unknown) => ProposalSchema.parse(proposal));
   } catch (error) {
     console.error('Failed to get proposals:', error);
@@ -36,7 +56,7 @@ export async function createProposal(data: Omit<Proposal, 'id' | 'createdAt' | '
       updatedAt: new Date().toISOString(),
     };
     
-    await kv.set(PROPOSALS_KEY, [...proposals, newProposal]);
+    await fs.writeFile(DB_PATH, JSON.stringify([...proposals, newProposal], null, 2));
     return newProposal;
   } catch (error) {
     console.error('Failed to create proposal:', error);
@@ -58,7 +78,7 @@ export async function updateProposal(id: string, data: Partial<Omit<Proposal, 'i
     };
 
     proposals[index] = updatedProposal;
-    await kv.set(PROPOSALS_KEY, proposals);
+    await fs.writeFile(DB_PATH, JSON.stringify(proposals, null, 2));
     return updatedProposal;
   } catch (error) {
     console.error('Failed to update proposal:', error);
@@ -71,7 +91,7 @@ export async function deleteProposal(id: string): Promise<boolean> {
   try {
     const proposals = await getProposals();
     const filteredProposals = proposals.filter(p => p.id !== id);
-    await kv.set(PROPOSALS_KEY, filteredProposals);
+    await fs.writeFile(DB_PATH, JSON.stringify(filteredProposals, null, 2));
     return true;
   } catch (error) {
     console.error('Failed to delete proposal:', error);
